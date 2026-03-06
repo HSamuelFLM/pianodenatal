@@ -15,12 +15,30 @@
     <!-- Header -->
     <header>
         <!-- Logo Row -->
+        <!-- Logo Row -->
         <div class="header-logo-row">
             <a href="#hero" class="logo">
                 <span class="logo-icon">🎄</span>
                 Christmas Piano
             </a>
+            <!-- Botões de conta -->
+            <div class="auth-buttons" id="authButtons">
+                <a href="login.html" class="btn-login">Login</a>
+                <a href="register.html" class="btn-register">Registrar</a>
+            </div>
+            <!-- Avatar do usuário (inicialmente oculto) -->
+            <div class="user-avatar" id="userAvatar" style="display: none;">
+                <span id="userInitials"></span>
+                <div class="avatar-dropdown">
+                    <a href="dashboard.html">Meu Perfil</a>
+                    <a href="#" id="logoutBtn">Sair</a>
+                </div>
+            </div>
         </div>
+    <!-- Resto do header permanece igual -->
+    <div class="header-nav-row">
+        <!-- ... -->
+    </div>
         <!-- Navigation Row -->
         <div class="header-nav-row">
             <div class="nav-container">
@@ -469,4 +487,5 @@
 </body>
 
 </html>
+
 
