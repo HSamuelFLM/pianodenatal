@@ -6,6 +6,26 @@
     <title>Login - Christmas Piano</title>
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="templatemo-604-christmas-piano.css">
+    <style>
+        .success-message {
+            display: none;
+            background-color: #2e5c3e;
+            color: white;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .error-message {
+            display: none;
+            background-color: #c41e3a;
+            color: white;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+    </style>
 </head>
 <body>
     <div class="auth-container">
@@ -40,32 +60,31 @@
     </div>
 
     <script>
-        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+        // Sistema de login com localStorage
+        document.getElementById('loginForm').addEventListener('submit', (e) => {
             e.preventDefault();
             
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
             
-            try {
-                const response = await fetch('http://localhost:3000/api/login', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ email, password })
-                });
+            // Buscar usuários do localStorage
+            const users = JSON.parse(localStorage.getItem('users') || '[]');
+            const user = users.find(u => u.email === email && u.password === password);
+            
+            if (user) {
+                // Salvar sessão do usuário
+                localStorage.setItem('loggedUser', JSON.stringify({
+                    id: user.id,
+                    name: user.name,
+                    email: user.email
+                }));
                 
-                const data = await response.json();
-                
-                if (response.ok) {
-                    localStorage.setItem('token', data.token);
-                    localStorage.setItem('user', JSON.stringify(data.user));
+                showSuccess('Login realizado! Redirecionando...');
+                setTimeout(() => {
                     window.location.href = 'index.html';
-                } else {
-                    showError(data.message);
-                }
-            } catch (error) {
-                showError('Erro ao conectar com o servidor');
+                }, 1500);
+            } else {
+                showError('E-mail ou senha incorretos');
             }
         });
         
@@ -76,6 +95,17 @@
             setTimeout(() => {
                 errorDiv.style.display = 'none';
             }, 5000);
+        }
+        
+        function showSuccess(message) {
+            const successDiv = document.getElementById('successMessage');
+            successDiv.textContent = message;
+            successDiv.style.display = 'block';
+        }
+        
+        // Se já estiver logado, redirecionar
+        if (localStorage.getItem('loggedUser')) {
+            window.location.href = 'index.html';
         }
     </script>
 </body>
