@@ -1,116 +1,461 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Registro - Christmas Piano</title>
-    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="templatemo-604-christmas-piano.css">
-</head>
-<body>
-    <div class="auth-container">
-        <div class="auth-card">
-            <div class="auth-header">
-                <h2>Criar conta 🎄</h2>
-                <p>Junte-se à magia do Natal</p>
-            </div>
-            
-            <div class="error-message" id="errorMessage"></div>
-            <div class="success-message" id="successMessage"></div>
-            
-            <form class="auth-form" id="registerForm">
-                <div class="form-group">
-                    <label for="name">Nome completo</label>
-                    <input type="text" id="name" name="name" placeholder="Seu nome" required>
-                </div>
-                
-                <div class="form-group">
-                    <label for="email">E-mail</label>
-                    <input type="email" id="email" name="email" placeholder="seu@email.com" required>
-                </div>
-                
-                <div class="form-group">
-                    <label for="password">Senha</label>
-                    <input type="password" id="password" name="password" placeholder="••••••••" required>
-                </div>
-                
-                <div class="form-group">
-                    <label for="confirmPassword">Confirmar senha</label>
-                    <input type="password" id="confirmPassword" name="confirmPassword" placeholder="••••••••" required>
-                </div>
-                
-                <button type="submit" class="auth-btn">Registrar</button>
-            </form>
-            
-            <div class="auth-links">
-                <p>Já tem uma conta? <a href="login.html">Faça login</a></p>
-                <a href="index.html" class="back-home">← Voltar para o início</a>
-            </div>
-        </div>
-    </div>
+// ==================== SISTEMA DE AUTENTICAÇÃO ====================
 
-    <script>
-        // Sistema de registro (simulado com localStorage)
-        document.getElementById('registerForm').addEventListener('submit', async (e) => {
+// Verificar se usuário está logado
+function checkAuth() {
+    const loggedUser = localStorage.getItem('loggedUser');
+    const authButtons = document.getElementById('authButtons');
+    const userAvatar = document.getElementById('userAvatar');
+    
+    if (loggedUser) {
+        // Usuário logado - mostrar avatar
+        const user = JSON.parse(loggedUser);
+        if (authButtons) authButtons.style.display = 'none';
+        if (userAvatar) {
+            userAvatar.style.display = 'flex';
+            // Mostrar iniciais do nome
+            const initials = user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+            const userInitials = document.getElementById('userInitials');
+            if (userInitials) userInitials.textContent = initials;
+        }
+    } else {
+        // Usuário não logado - mostrar botões
+        if (authButtons) authButtons.style.display = 'flex';
+        if (userAvatar) userAvatar.style.display = 'none';
+    }
+}
+
+// Logout
+function logout() {
+    localStorage.removeItem('loggedUser');
+    window.location.href = 'index.html';
+}
+
+// ==================== SISTEMA DO PIANO ====================
+
+// Variáveis globais do piano
+let currentSongIndex = 0;
+let isPlaying = false;
+let currentNoteInterval = null;
+let repeatEnabled = false;
+let audioContext = null;
+
+// Dados das músicas
+const songs = [
+    {
+        name: "Last Christmas",
+        notes: ["C4", "D4", "E4", "E4", "D4", "C4", "B3", "C4", "C4", "D4", "E4", "E4", "D4", "D4", "C4"],
+        duration: [500, 500, 1000, 500, 500, 500, 1000, 500, 500, 1000, 500, 500, 500, 1000, 2000]
+    },
+    {
+        name: "Jingle Bells",
+        notes: ["E4", "E4", "E4", "E4", "E4", "E4", "E4", "G4", "C4", "D4", "E4"],
+        duration: [400, 400, 400, 400, 400, 400, 400, 400, 800, 800, 800]
+    },
+    {
+        name: "We Wish You a Merry Christmas",
+        notes: ["C4", "D4", "E4", "F4", "F4", "E4", "D4", "C4", "G3", "C4"],
+        duration: [500, 500, 500, 1000, 500, 500, 500, 1000, 500, 2000]
+    }
+];
+
+// Mapeamento de notas para frequências
+const frequencies = {
+    'C4': 261.63, 'C#4': 277.18, 'D4': 293.66, 'D#4': 311.13,
+    'E4': 329.63, 'F4': 349.23, 'F#4': 369.99, 'G4': 392.00,
+    'G#4': 415.30, 'A4': 440.00, 'A#4': 466.16, 'B4': 493.88,
+    'C5': 523.25, 'B3': 246.94, 'G3': 196.00
+};
+
+// Inicializar Audio Context
+function initAudio() {
+    if (!audioContext) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (audioContext.state === 'suspended') {
+        audioContext.resume();
+    }
+    return audioContext;
+}
+
+// Tocar nota
+function playNote(note) {
+    const ctx = initAudio();
+    const oscillator = ctx.createOscillator();
+    const gainNode = ctx.createGain();
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(ctx.destination);
+    
+    oscillator.frequency.value = frequencies[note] || 261.63;
+    oscillator.type = 'sine';
+    
+    const volume = parseFloat(localStorage.getItem('volume') || '0.7');
+    gainNode.gain.value = volume;
+    
+    oscillator.start();
+    gainNode.gain.exponentialRampToValueAtTime(0.00001, ctx.currentTime + 1);
+    oscillator.stop(ctx.currentTime + 1);
+    
+    // Destacar tecla visualmente
+    highlightKey(note);
+}
+
+// Destacar tecla
+function highlightKey(note) {
+    const keys = document.querySelectorAll('.piano-key');
+    keys.forEach(key => {
+        if (key.dataset.note === note) {
+            key.style.backgroundColor = '#ffd700';
+            key.style.transform = 'scale(0.95)';
+            setTimeout(() => {
+                key.style.backgroundColor = '';
+                key.style.transform = '';
+            }, 200);
+        }
+    });
+}
+
+// Criar teclas do piano
+function createMiniPiano() {
+    const pianoContainer = document.getElementById('miniPiano');
+    if (!pianoContainer) return;
+    
+    const whiteKeys = [
+        { note: 'C4', label: 'C' },
+        { note: 'D4', label: 'D' },
+        { note: 'E4', label: 'E' },
+        { note: 'F4', label: 'F' },
+        { note: 'G4', label: 'G' },
+        { note: 'A4', label: 'A' },
+        { note: 'B4', label: 'B' }
+    ];
+    
+    pianoContainer.innerHTML = '';
+    
+    whiteKeys.forEach((key) => {
+        const keyElement = document.createElement('div');
+        keyElement.className = 'piano-key white';
+        keyElement.dataset.note = key.note;
+        keyElement.textContent = key.label;
+        keyElement.addEventListener('click', () => playNote(key.note));
+        pianoContainer.appendChild(keyElement);
+    });
+}
+
+// Tocar música atual
+function playCurrentSong() {
+    if (currentNoteInterval) clearInterval(currentNoteInterval);
+    
+    const song = songs[currentSongIndex];
+    if (!song) return;
+    
+    let noteIndex = 0;
+    const speed = parseFloat(localStorage.getItem('speed') || '1');
+    
+    function playNextNote() {
+        if (noteIndex >= song.notes.length) {
+            if (repeatEnabled) {
+                noteIndex = 0;
+                playNextNote();
+            } else {
+                stopPlayback();
+                isPlaying = false;
+                const playBtn = document.getElementById('playBtn');
+                if (playBtn) playBtn.textContent = '▶';
+            }
+            return;
+        }
+        
+        playNote(song.notes[noteIndex]);
+        const duration = song.duration[noteIndex] / speed;
+        noteIndex++;
+        currentNoteInterval = setTimeout(playNextNote, duration);
+    }
+    
+    playNextNote();
+    
+    // Atualizar UI
+    const playBtn = document.getElementById('playBtn');
+    if (playBtn) playBtn.textContent = '⏸';
+}
+
+// Parar reprodução
+function stopPlayback() {
+    if (currentNoteInterval) {
+        clearTimeout(currentNoteInterval);
+        currentNoteInterval = null;
+    }
+}
+
+// Contar música para estatísticas
+function countSongPlay() {
+    const loggedUser = localStorage.getItem('loggedUser');
+    if (loggedUser) {
+        const user = JSON.parse(loggedUser);
+        let plays = localStorage.getItem(`plays_${user.id}`) || 0;
+        plays = parseInt(plays) + 1;
+        localStorage.setItem(`plays_${user.id}`, plays);
+        
+        const songPlays = JSON.parse(localStorage.getItem(`songPlays_${user.id}`) || '{}');
+        const currentSong = songs[currentSongIndex].name;
+        songPlays[currentSong] = (songPlays[currentSong] || 0) + 1;
+        localStorage.setItem(`songPlays_${user.id}`, JSON.stringify(songPlays));
+    }
+}
+
+// ==================== EVENTOS E INICIALIZAÇÃO ====================
+
+document.addEventListener('DOMContentLoaded', () => {
+    // Inicializar autenticação
+    checkAuth();
+    
+    // Adicionar evento de logout
+    const logoutBtn = document.getElementById('logoutBtn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', (e) => {
             e.preventDefault();
-            
-            const name = document.getElementById('name').value;
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
-            const confirmPassword = document.getElementById('confirmPassword').value;
-            
-            // Validação básica
-            if (password !== confirmPassword) {
-                showError('As senhas não coincidem');
-                return;
+            logout();
+        });
+    }
+    
+    // Inicializar piano
+    createMiniPiano();
+    
+    // Controles do player
+    const playBtn = document.getElementById('playBtn');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const speedSlider = document.getElementById('speedSlider');
+    const volumeSlider = document.getElementById('volumeSlider');
+    const repeatSwitch = document.getElementById('repeatSwitch');
+    const songTabs = document.querySelectorAll('.song-tab');
+    const currentSongTitle = document.getElementById('currentSongTitle');
+    
+    // Carregar configurações salvas
+    if (speedSlider) {
+        const savedSpeed = localStorage.getItem('speed');
+        if (savedSpeed) speedSlider.value = savedSpeed;
+        const speedValue = document.getElementById('speedValue');
+        if (speedValue) speedValue.textContent = `${speedSlider.value}x`.replace('.', ',');
+        
+        speedSlider.addEventListener('input', (e) => {
+            const speed = parseFloat(e.target.value);
+            localStorage.setItem('speed', speed);
+            if (speedValue) speedValue.textContent = `${speed}x`.replace('.', ',');
+            if (isPlaying) {
+                stopPlayback();
+                playCurrentSong();
             }
-            
-            if (password.length < 6) {
-                showError('A senha deve ter pelo menos 6 caracteres');
-                return;
+        });
+    }
+    
+    if (volumeSlider) {
+        const savedVolume = localStorage.getItem('volume');
+        if (savedVolume) volumeSlider.value = savedVolume;
+        const volumeValue = document.getElementById('volumeValue');
+        if (volumeValue) volumeValue.textContent = `${Math.round(volumeSlider.value * 100)}%`;
+        
+        volumeSlider.addEventListener('input', (e) => {
+            const volume = parseFloat(e.target.value);
+            localStorage.setItem('volume', volume);
+            if (volumeValue) volumeValue.textContent = `${Math.round(volume * 100)}%`;
+        });
+    }
+    
+    if (repeatSwitch) {
+        const savedRepeat = localStorage.getItem('repeat');
+        if (savedRepeat === 'true') {
+            repeatEnabled = true;
+            repeatSwitch.style.backgroundColor = '#2e5c3e';
+        }
+        
+        repeatSwitch.addEventListener('click', () => {
+            repeatEnabled = !repeatEnabled;
+            localStorage.setItem('repeat', repeatEnabled);
+            repeatSwitch.style.backgroundColor = repeatEnabled ? '#2e5c3e' : '#ccc';
+        });
+    }
+    
+    if (playBtn) {
+        playBtn.addEventListener('click', () => {
+            if (isPlaying) {
+                stopPlayback();
+                isPlaying = false;
+                playBtn.textContent = '▶';
+            } else {
+                isPlaying = true;
+                playCurrentSong();
+                playBtn.textContent = '⏸';
+                countSongPlay();
             }
-            
-            try {
-                // Verificar se usuário já existe
-                const existingUsers = JSON.parse(localStorage.getItem('users') || '[]');
-                if (existingUsers.find(u => u.email === email)) {
-                    showError('E-mail já cadastrado');
-                    return;
-                }
-                
-                // Salvar usuário
-                const newUser = { 
-                    id: Date.now(), 
-                    name: name, 
-                    email: email, 
-                    password: password 
-                };
-                existingUsers.push(newUser);
-                localStorage.setItem('users', JSON.stringify(existingUsers));
-                
-                showSuccess('Conta criada com sucesso! Redirecionando...');
-                setTimeout(() => {
-                    window.location.href = 'login.html';
-                }, 2000);
-            } catch (error) {
-                showError('Erro ao conectar com o servidor');
+        });
+    }
+    
+    if (prevBtn) {
+        prevBtn.addEventListener('click', () => {
+            currentSongIndex = (currentSongIndex - 1 + songs.length) % songs.length;
+            updateSong();
+        });
+    }
+    
+    if (nextBtn) {
+        nextBtn.addEventListener('click', () => {
+            currentSongIndex = (currentSongIndex + 1) % songs.length;
+            updateSong();
+        });
+    }
+    
+    function updateSong() {
+        if (currentSongTitle) currentSongTitle.textContent = songs[currentSongIndex].name;
+        
+        songTabs.forEach((tab, index) => {
+            if (index === currentSongIndex) {
+                tab.classList.add('active');
+            } else {
+                tab.classList.remove('active');
             }
         });
         
-        function showError(message) {
-            const errorDiv = document.getElementById('errorMessage');
-            errorDiv.textContent = message;
-            errorDiv.style.display = 'block';
-            setTimeout(() => {
-                errorDiv.style.display = 'none';
-            }, 5000);
+        if (isPlaying) {
+            stopPlayback();
+            playCurrentSong();
+        }
+    }
+    
+    songTabs.forEach((tab, index) => {
+        tab.addEventListener('click', () => {
+            currentSongIndex = index;
+            updateSong();
+        });
+    });
+    
+    updateSong();
+    
+    // ==================== FORMULÁRIO DE CONTATO ====================
+    const contactForm = document.getElementById('contactForm');
+    if (contactForm) {
+        contactForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const nameInput = document.getElementById('contactName');
+            const emailInput = document.getElementById('contactEmail');
+            const messageTextarea = document.getElementById('message');
+            
+            const messages = JSON.parse(localStorage.getItem('contactMessages') || '[]');
+            messages.push({
+                id: Date.now(),
+                name: nameInput ? nameInput.value : 'Anônimo',
+                email: emailInput ? emailInput.value : 'sem@email.com',
+                message: messageTextarea ? messageTextarea.value : '',
+                date: new Date().toISOString()
+            });
+            localStorage.setItem('contactMessages', JSON.stringify(messages));
+            
+            alert('Mensagem enviada com sucesso!');
+            contactForm.reset();
+        });
+    }
+    
+    // ==================== GALERIA LIGHTBOX ====================
+    const galleryItems = document.querySelectorAll('.gallery-item');
+    const lightbox = document.getElementById('lightbox');
+    const lightboxImg = document.getElementById('lightboxImg');
+    let currentImageIndex = 0;
+    const totalImages = galleryItems.length;
+    
+    function openLightbox(index) {
+        currentImageIndex = index;
+        const imgSrc = galleryItems[index].querySelector('img').src;
+        if (lightboxImg) lightboxImg.src = imgSrc;
+        if (lightbox) lightbox.classList.add('active');
+        document.body.style.overflow = 'hidden';
+    }
+    
+    function closeLightbox() {
+        if (lightbox) lightbox.classList.remove('active');
+        document.body.style.overflow = '';
+    }
+    
+    function prevImage() {
+        currentImageIndex = (currentImageIndex - 1 + totalImages) % totalImages;
+        const imgSrc = galleryItems[currentImageIndex].querySelector('img').src;
+        if (lightboxImg) lightboxImg.src = imgSrc;
+    }
+    
+    function nextImage() {
+        currentImageIndex = (currentImageIndex + 1) % totalImages;
+        const imgSrc = galleryItems[currentImageIndex].querySelector('img').src;
+        if (lightboxImg) lightboxImg.src = imgSrc;
+    }
+    
+    galleryItems.forEach((item, index) => {
+        item.addEventListener('click', () => openLightbox(index));
+    });
+    
+    const closeBtn = document.getElementById('lightboxClose');
+    const prevBtnLightbox = document.getElementById('lightboxPrev');
+    const nextBtnLightbox = document.getElementById('lightboxNext');
+    
+    if (closeBtn) closeBtn.addEventListener('click', closeLightbox);
+    if (prevBtnLightbox) prevBtnLightbox.addEventListener('click', prevImage);
+    if (nextBtnLightbox) nextBtnLightbox.addEventListener('click', nextImage);
+    
+    if (lightbox) {
+        lightbox.addEventListener('click', (e) => {
+            if (e.target === lightbox) closeLightbox();
+        });
+    }
+    
+    // ==================== NAVEGAÇÃO MOBILE ====================
+    const navToggle = document.getElementById('navToggle');
+    const navLinks = document.getElementById('navLinks');
+    
+    if (navToggle && navLinks) {
+        navToggle.addEventListener('click', () => {
+            navLinks.classList.toggle('active');
+            navToggle.classList.toggle('active');
+        });
+    }
+    
+    // ==================== TECLADO PARA PIANO ====================
+    document.addEventListener('keydown', (e) => {
+        const key = e.key.toLowerCase();
+        const keyMap = {
+            'z': 'C4', 'x': 'D4', 'c': 'E4', 'v': 'F4', 'b': 'G4', 'n': 'A4', 'm': 'B4',
+            'q': 'C5', 'w': 'D5', 'e': 'E5', 'r': 'F5', 't': 'G5', 'y': 'A5', 'u': 'B5'
+        };
+        
+        if (keyMap[key]) {
+            playNote(keyMap[key]);
+            e.preventDefault();
         }
         
-        function showSuccess(message) {
-            const successDiv = document.getElementById('successMessage');
-            successDiv.textContent = message;
-            successDiv.style.display = 'block';
+        if (key === ' ') {
+            e.preventDefault();
+            const playButton = document.getElementById('playBtn');
+            if (playButton) playButton.click();
         }
-    </script>
-</body>
-</html>
+    });
+    
+    // ==================== NEVE ====================
+    function createSnowflake() {
+        const snowflake = document.createElement('div');
+        snowflake.classList.add('snowflake');
+        snowflake.innerHTML = '❄️';
+        snowflake.style.left = Math.random() * 100 + '%';
+        snowflake.style.animationDuration = Math.random() * 3 + 2 + 's';
+        snowflake.style.opacity = Math.random();
+        snowflake.style.fontSize = Math.random() * 20 + 10 + 'px';
+        snowflake.style.position = 'fixed';
+        snowflake.style.top = '-20px';
+        snowflake.style.zIndex = '9999';
+        snowflake.style.pointerEvents = 'none';
+        
+        document.body.appendChild(snowflake);
+        
+        setTimeout(() => {
+            snowflake.remove();
+        }, 5000);
+    }
+    
+    setInterval(createSnowflake, 300);
+});
