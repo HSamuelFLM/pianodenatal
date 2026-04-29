@@ -266,7 +266,7 @@
         let plays = localStorage.getItem(`plays_${user.id}`) || 0;
         document.getElementById('songsPlayed').textContent = plays;
         
-        // Música favorita (exemplo baseado na mais ouvida)
+        // Música favorita
         const songPlays = JSON.parse(localStorage.getItem(`songPlays_${user.id}`) || '{}');
         let favorite = '-';
         let maxPlays = 0;
