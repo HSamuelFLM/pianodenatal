@@ -443,7 +443,7 @@ document.addEventListener('DOMContentLoaded', () => {
         snowflake.innerHTML = '❄️';
         snowflake.style.left = Math.random() * 100 + '%';
         snowflake.style.animationDuration = Math.random() * 3 + 2 + 's';
-        snowflake.style.opacity = Math.random();
+        snowflake.style.opacity = Math.random() * 0.5 + 0.2;
         snowflake.style.fontSize = Math.random() * 20 + 10 + 'px';
         snowflake.style.position = 'fixed';
         snowflake.style.top = '-20px';
@@ -457,5 +457,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 5000);
     }
     
-    setInterval(createSnowflake, 300);
+    // Iniciar neve apenas se não estiver na página de auth
+    if (!window.location.pathname.includes('login') && !window.location.pathname.includes('register')) {
+        setInterval(createSnowflake, 300);
+    }
 });
